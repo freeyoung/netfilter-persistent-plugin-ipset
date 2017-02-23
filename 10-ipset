@@ -1,0 +1,55 @@
+#!/bin/bash
+
+# This script is a plugin of netfilter-persistent.
+# Please put it into /usr/share/netfilter-persistent/plugins.d
+# NOTE: Ensure this file is executable.
+
+set -e
+
+rc=0
+
+load_rules()
+{
+    if [ ! -f /etc/iptables/rules.ipset ] || [ ! -f /etc/iptables/rules.ipset ]; then
+        echo "Warning: skipping IPSet (missing rules file)"
+    else
+        grep ^create /etc/iptables/rules.ipset | ipset restore 2>/dev/null || true
+        grep ^add /etc/iptables/rules.ipset | ipset restore 2>/dev/null
+        if [ $? -ne 0 ]; then
+            rc=1
+        fi
+    fi
+}
+
+save_rules()
+{
+    ipset save > /etc/iptables/rules.ipset
+}
+
+flush_rules()
+{
+    ipset flush
+}
+
+case "$1" in
+start|restart|reload|force-reload)
+    flush_rules
+    load_rules
+    ;;
+save)
+    save_rules
+    ;;
+stop)
+    # destroy is not acceptable here because a set could be in use.
+    echo "stop (destroy) is not supported."
+    ;;
+flush)
+    flush_rules
+    ;;
+*)
+    echo "Usage: $0 {start|restart|reload|force-reload|save|flush}" >&2
+    exit 1
+    ;;
+esac
+
+exit $rc
